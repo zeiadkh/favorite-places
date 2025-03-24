@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, StyleSheet, Alert, Image, Text } from "react-native";
 import { Colors } from "../../constants/colors";
 import OutlinedButton from "../ui/OutlinedButton";
@@ -8,11 +8,20 @@ import {
   PermissionStatus,
   useForegroundPermissions,
 } from "expo-location";
-import { getMapPreview } from "../../util/location";
-export default function LocationPicker() {
+import { getAddress, getMapPreview } from "../../util/location";
+import {
+  useNavigation,
+  useRoute,
+  useIsFocused,
+} from "@react-navigation/native";
+export default function LocationPicker({ onPickLocation }) {
   const [location, setLocation] = useState();
   const [locationPermissionInfo, requestPermission] =
     useForegroundPermissions();
+  const navigation = useNavigation();
+  const route = useRoute();
+  const isFocused = useIsFocused();
+
   async function verifyPermissions() {
     const locationPermission = await requestForegroundPermissionsAsync();
     if (locationPermissionInfo.status === PermissionStatus.UNDETERMINED) {
@@ -38,18 +47,36 @@ export default function LocationPicker() {
       lat: location.coords.latitude,
       lng: location.coords.longitude,
     });
-    console.log(location);
   }
-  function pickOnMapHandler() {}
+  function pickOnMapHandler() {
+    navigation.navigate("Map");
+  }
   let pickedLocation = <Text>No Locations Picked Yet.</Text>;
   if (location)
-   pickedLocation = (
+    pickedLocation = (
       <Image
         source={{ uri: getMapPreview(location.lat, location.lng) }}
         style={styles.image}
       />
     );
-
+  useEffect(() => {
+    if (isFocused && route.params) {
+      const mapPickedLocation = {
+        lat: route.params.pickedLat,
+        lng: route.params.pickedLng,
+      };
+      setLocation(mapPickedLocation);
+    }
+  }, [route, isFocused]);
+  useEffect(() => {
+    async function handleLocation() {
+      if (location) {
+        const address =  await  getAddress(location.lat, location.lng);
+        onPickLocation({...location, address});
+      }
+    }
+    handleLocation();
+  }, [location, onPickLocation]);
   return (
     <View>
       <View style={styles.mapPreview}>{pickedLocation}</View>
